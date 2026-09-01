@@ -26,8 +26,9 @@ can enter any truck.
 
 ### Cube
 
-- Has exactly one **color**. Colors are opaque identifiers (the logic
-  does not care how they are displayed).
+- Has exactly one **color**. Colors are values of `CubeColor.Id` (see
+  `scripts/puzzle/cube_color.gd`). The logic does not care how they are
+  displayed. `NONE` is not a playable cube; it is the empty-top sentinel.
 - Exists in exactly one place at a time: in a truck stack, or in transit
   on the conveyor.
 
@@ -308,19 +309,41 @@ A color whose `set_size` matches no truck capacity is legal input
 
 ---
 
-## 8. Collaborators
+## 8. Ownership and collaborators
 
-This unit owns session state. It depends on:
+Runtime ownership (who frees whom, who may mutate what):
 
-- **Level data** — supplied at construction; treated as an immutable
-  description. Invalid level data is rejected up front (section 7).
-- **Caller (tests, later the scene)** — calls `tap` and `advance`, reads
-  observable state (stacks, in-transit cubes, win/loss, tap rejection
-  reason).
+```
+PuzzleSession          # play record: history + the Level(s) in this play
+  └── Level            # playable puzzle; tap / advance live here
+        └── Conveyor   # the loop
+              ├── Truck...          # stations on the loop
+              │     └── Block...    # stacked; truck owns until unload
+              └── Block...          # in transit; conveyor owns until accept
+```
+
+`LevelData` is not in that tree. It is an immutable description used
+only to construct a `Level`. A future `User` may own many
+`PuzzleSession`s; that is out of scope here.
+
+A `Block` is a real object. Unload **transfers** it from `Truck` to
+`Conveyor`. A successful receive transfers it back. The object is not
+copied and is never owned by two parents at once.
+
+`Level.tap` / `Level.advance` are the only operations that mutate
+playable state. They delegate: tap asks a truck to unload and the
+conveyor to `load`; advance asks the conveyor to move and offer.
+
+Collaborators of `Level`:
+
+- **LevelData** — supplied at construction; invalid data is rejected
+  up front (section 7).
+- **Caller (tests, later the scene or PuzzleSession)** — calls `tap`
+  and `advance`, reads observable state.
 
 It does **not** depend on Godot nodes, input, audio, or a random number
-generator. Given the same level, taps, and `advance` values, results
-are deterministic.
+generator. Given the same `LevelData`, taps, and `advance` values,
+results are deterministic.
 
 ---
 
@@ -328,13 +351,13 @@ are deterministic.
 
 Enough to reconstruct the puzzle without looking at internals:
 
-- Each truck’s `capacity`, `position`, stack (bottom → top), and
-  whether it is finished.
+- Each truck’s `capacity`, `position`, owned blocks (bottom → top),
+  and whether it is finished.
 - Each color’s `set_size`.
-- Each in-transit cube: color and position on the conveyor.
+- Each in-transit block: color and path on the conveyor.
 - `in_transit_count`, `conveyor_max`.
 - Whether the last `tap` was accepted, and if not, why.
-- Whether the session is playing, won, or lost.
+- Whether the level is playing, won, or lost.
 
 ---
 
@@ -356,6 +379,11 @@ Enough to reconstruct the puzzle without looking at internals:
   matches that color’s set size.
 - Clock: integer ticks. `hop_duration` is ticks per hop. `advance(n)`
   advances `n` ticks.
+- Ownership: `PuzzleSession` → `Level` → `Conveyor` → (`Truck` →
+  stacked `Block`, and in-transit `Block`). `tap` / `advance` on
+  `Level`.
 
-No further open points on the core loop. Next workflow step is the
-skeleton (signatures only), then GUT + tests.
+`PuzzleSession` history event schema is **not** specified yet. Do not
+invent one in implementation.
+
+Next workflow step: GUT + tests against this skeleton.

@@ -115,13 +115,13 @@ and ask, don't guess and encode the guess into a test.
 ## 4. Project context (so questions are well-informed, not generic)
 
 - Engine/language: **Godot 4.7 (GDScript)** — see `README.md`.
-- Current stage: pre-code. Core puzzle logic should be built as plain
-  GDScript data/logic, decoupled from scenes/nodes, before any rendering
-  or input exists (see `docs/NEXT_STEPS.md`).
-- No test runner is installed yet. **Do not add one without asking** — a
-  testing addon choice (e.g. GUT vs. Godot's built-in `GdUnit`-style
-  approaches vs. something else) is an architectural decision under
-  Rule 2.
+- Current stage: data-model skeleton only (`scripts/puzzle/`). Plain
+  GDScript `RefCounted` classes, decoupled from scenes/nodes. No
+  implementation yet; methods stub with `push_error("not implemented")`.
+  See `docs/CORE_LOOP.md` and `docs/NEXT_STEPS.md`.
+- Test runner: **GUT** is the chosen runner. It is not installed yet.
+  Install it when writing tests (next BDD/TDD step). Do not pick a
+  different runner without asking (Rule 2).
 - Design constraints (monetization philosophy, what "simpler" vs.
   "easier/faster" means) are documented in `docs/DESIGN.md` — treat these
   as binding product constraints, not suggestions, but flag anything you

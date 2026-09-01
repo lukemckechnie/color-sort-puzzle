@@ -41,44 +41,55 @@ terms" — proving a fair monetization model can still work commercially.
    Resolved by grabbing **Godot 4.7.1** instead, which opened cleanly.
    Leftover zips in `~/Downloads` (4.7.1 and the bad 4.7.2) can be deleted
    whenever — harmless, not cleaned up yet.
+7. Specified the Loop Sort–style core loop in `CORE_LOOP.md` (per-truck
+   capacity, accept any color / finish only on matching set size, tick
+   clock, positions). Chose **GUT** as the test runner (not installed
+   yet).
+8. Sketched the data model under `scripts/puzzle/` (signatures only):
+   `PuzzleSession` → `Level` → `Conveyor` → (`Truck` → stacked `Block`,
+   and in-transit `Block`). Colors are `CubeColor.Id`. No
+   implementation yet.
 
 ## Current state
 
-- [x] Project folder created at `/Users/lmckechn/projects/color-sort-puzzle`
-      with git initialized (nothing committed yet — no commits made so far,
-      by design, since commits are only made when explicitly requested).
+- [x] Project folder created; git has commits (only when explicitly
+      requested).
 - [x] `project.godot` configured: mobile renderer, portrait orientation,
       working title "Chroma Sort".
 - [x] Design principles documented in `DESIGN.md`.
 - [x] Godot 4.7.1 installed and confirmed working on this Mac.
 - [x] Project has been opened in the Godot editor (`.godot/` cache exists).
 - [x] Core-loop behavior specified in [`CORE_LOOP.md`](CORE_LOOP.md).
-- [x] Test runner decision: **GUT** (not installed yet — do not add it
-      until the skeleton exists and we are ready to write tests).
-- [ ] No actual game code/scenes exist yet. `run/main_scene` in
-      `project.godot` points to `res://scenes/main/main.tscn`, which does
-      not exist yet — missing-main-scene warning is expected and ignored
-      until the scene step.
+- [x] Test runner decision: **GUT** (not installed yet — add it when
+      writing tests, not before).
+- [x] Data-model skeleton in `scripts/puzzle/` (signatures only; methods
+      `push_error("not implemented")`). Ownership is in `CORE_LOOP.md` §8.
+- [ ] No scenes yet. `run/main_scene` points at
+      `res://scenes/main/main.tscn`, which does not exist — missing-main-scene
+      warning is expected and ignored until the scene step.
+- [ ] `PuzzleSession.history()` event schema is not specified. Do not
+      invent one.
 
 ## Next steps, in order
 
 1. [x] Open the project in the Godot editor.
-2. [x] Specify the core loop (`CORE_LOOP.md`). **Review that spec before
-      any code.**
-3. Build the **core puzzle data model**, decoupled from visuals, via the
-   repo's BDD/TDD sequence (`AGENT.md` §3):
-   - Skeleton (signatures only) matching `CORE_LOOP.md`.
-   - Tests against that skeleton with GUT (install GUT at that step, not
-     before).
-   - Confirm tests fail for the expected reason, then implement.
-   - Happy path and sad path for every behavior in the spec.
-4. Once the core loop is validated, build the actual scene: truck/
+2. [x] Specify the core loop (`CORE_LOOP.md`).
+3. [x] Skeleton matching that spec (`scripts/puzzle/`).
+4. Tests + implementation for the core data model (`AGENT.md` §3,
+   remaining):
+   - Install GUT.
+   - Write tests against the skeleton (happy path and sad path).
+   - Confirm they fail for the expected reason (missing behavior).
+   - Implement the minimum to turn them green.
+5. Once the core loop is validated, build the actual scene: truck/
    conveyor rendering (programmer-art shapes) and touch input for taps.
-5. Only after the loop is fun: revisit the remaining open questions in
+6. Only after the loop is fun: revisit the remaining open questions in
    `DESIGN.md` (level progression/generation, concrete v1 monetization
    hooks, visual identity, final name).
 
 ## Open decisions not yet made
 
-See `DESIGN.md` (remaining product questions) and section 11 of
-`CORE_LOOP.md` (flagged recommendations in the spec, not yet confirmed).
+See `DESIGN.md` for remaining product questions. Core-loop rules and
+ownership in `CORE_LOOP.md` §11 are closed. Still unspecified:
+`PuzzleSession` history event schema, and a future `User` that owns
+sessions.
