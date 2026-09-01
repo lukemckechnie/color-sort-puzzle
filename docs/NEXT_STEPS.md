@@ -51,34 +51,34 @@ terms" — proving a fair monetization model can still work commercially.
       working title "Chroma Sort".
 - [x] Design principles documented in `DESIGN.md`.
 - [x] Godot 4.7.1 installed and confirmed working on this Mac.
-- [ ] Project has **not** been opened in the Godot editor yet by the time
-      of this handoff.
+- [x] Project has been opened in the Godot editor (`.godot/` cache exists).
+- [x] Core-loop behavior specified in [`CORE_LOOP.md`](CORE_LOOP.md).
+- [x] Test runner decision: **GUT** (not installed yet — do not add it
+      until the skeleton exists and we are ready to write tests).
 - [ ] No actual game code/scenes exist yet. `run/main_scene` in
       `project.godot` points to `res://scenes/main/main.tscn`, which does
-      not exist yet — expect a "missing main scene" prompt on first open.
+      not exist yet — missing-main-scene warning is expected and ignored
+      until the scene step.
 
 ## Next steps, in order
 
-1. Open the Godot editor → **Import** →
-   `/Users/lmckechn/projects/color-sort-puzzle` (the folder with
-   `project.godot` in it).
-2. Build the **core puzzle data model first, decoupled from visuals**:
-   - Represent the grid/containers and colors as plain GDScript data
-     (arrays/classes), not nodes yet.
-   - Implement move validation and win-condition checking as pure logic
-     that can be tested headlessly (e.g. via a script run from the
-     editor's script tab, or GUT/other testing approach) before any
-     rendering exists.
-   - Goal: prove the puzzle mechanic is actually solvable and fun before
-     investing in visuals or input handling.
-3. Once the core loop is validated, build the actual scene: grid
-   rendering, container/color visuals (programmer-art shapes), and touch
-   input for moves.
-4. Only after the loop is fun: revisit the open questions in `DESIGN.md`
-   (exact move rules, level progression/generation, concrete v1
-   monetization hooks, visual identity, final name).
+1. [x] Open the project in the Godot editor.
+2. [x] Specify the core loop (`CORE_LOOP.md`). **Review that spec before
+      any code.**
+3. Build the **core puzzle data model**, decoupled from visuals, via the
+   repo's BDD/TDD sequence (`AGENT.md` §3):
+   - Skeleton (signatures only) matching `CORE_LOOP.md`.
+   - Tests against that skeleton with GUT (install GUT at that step, not
+     before).
+   - Confirm tests fail for the expected reason, then implement.
+   - Happy path and sad path for every behavior in the spec.
+4. Once the core loop is validated, build the actual scene: truck/
+   conveyor rendering (programmer-art shapes) and touch input for taps.
+5. Only after the loop is fun: revisit the remaining open questions in
+   `DESIGN.md` (level progression/generation, concrete v1 monetization
+   hooks, visual identity, final name).
 
 ## Open decisions not yet made
 
-See the "Open questions / next decisions" section at the bottom of
-`DESIGN.md` — nothing there has been decided yet as of this handoff.
+See `DESIGN.md` (remaining product questions) and section 11 of
+`CORE_LOOP.md` (flagged recommendations in the spec, not yet confirmed).

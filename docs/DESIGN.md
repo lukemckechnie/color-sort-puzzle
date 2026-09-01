@@ -49,7 +49,8 @@ pressure, always skippable with zero gameplay penalty for skipping.
 
 ## Game concept (draft — refine as we build)
 
-- Genre: 2D color-sort/collection puzzle.
+- Genre: 2D color-sort/collection puzzle. Core mechanic is a Loop Sort–
+  style truck/conveyor loop, specified in [`CORE_LOOP.md`](CORE_LOOP.md).
 - Visual style: deliberately simple/minimal — this is a strength (fast to
   build, fast to load, easy to theme with cosmetic packs later), not a
   compromise.
@@ -69,8 +70,9 @@ pressure, always skippable with zero gameplay penalty for skipping.
 
 ## Open questions / next decisions
 
-- [ ] Exact puzzle mechanic and win condition (how many colors/containers,
-      move rules, level generation vs. hand-authored levels)
+- [x] Exact puzzle mechanic and win condition — core loop specified in
+      [`CORE_LOOP.md`](CORE_LOOP.md). Still open: level generation vs.
+      hand-authored levels, and how many trucks/colors per level.
 - [ ] Level progression structure (linear, world map, daily puzzle, etc.)
 - [ ] What the "simpler" convenience purchases look like concretely in v1
 - [ ] Visual identity beyond programmer art placeholders
