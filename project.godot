@@ -28,3 +28,7 @@ window/handheld/orientation="portrait"
 
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gut/plugin.cfg")

@@ -105,57 +105,70 @@ A level is defined by:
 | Field | Meaning |
 | --- | --- |
 | `conveyor_max` | Max cubes allowed in transit at once. |
-| `hop_duration` | Integer **ticks** for a cube to travel from one truck’s position to the next along the loop. This is a clock, not a destination. See §3. |
-| `trucks` | Ordered list of trucks around the loop. Each truck has `capacity` (≥ 1), `position` on the conveyor, and a starting `stack` (list of colors, **bottom first**). A truck may start empty. |
+| `slot_count` | Number of discrete slots on the conveyor ring. See §3. |
+| `trucks` | Ordered list of trucks. Each has `capacity` (≥ 1), `position` (slot index), and a starting `stack` (colors, **bottom first**). A truck may start empty. |
 
-Truck positions must be unique and lie on the loop. The cyclic order of
-trucks is the order of those positions in the direction of travel.
-No truck’s starting stack may exceed **that truck’s** `capacity`.
-`conveyor_max` must be ≥ 1. `hop_duration` must be an integer ≥ 1.
+Truck positions must be unique and in `[0, slot_count)`. Cyclic order
+is increasing position (wrap). No starting stack may exceed that
+truck’s `capacity`. No stack may contain `CubeColor.Id.NONE`.
+`conveyor_max` ≥ 1. `slot_count` ≥ 1.
 
-If positions are omitted in an early implementation, the ordered list
-itself is the loop (truck `i` at station `i`). That is equivalent: the
-list order *is* position.
+Validation failure reasons are the `LevelData.ERR_*` constants
+(section 7).
 
 ---
 
 ## 3. Positions on the conveyor (not destination assignment)
 
-Each cube on the conveyor is an independent traveler. It occupies one
-in-transit slot and has a **position** on the loop. Cubes never reserve
-a truck. Two cubes of the same color may both be approaching a truck
-that only has one free slot; the first to **reach that truck’s
-position** is offered first, and the second is offered against whatever
-the truck looks like when **it** arrives.
+The conveyor is a **ring of `slot_count` discrete slots** (`0` ..
+`slot_count - 1`). Trucks sit at chosen slots; spacing is whatever the
+level placed. Each in-transit block occupies exactly one slot
+(`Block.position`). Cubes never reserve a truck. **At most one block
+occupies a slot, and at most one block reaches a given truck on a
+given tick.** There is no separate hop clock — one granted advance is
++1 slot.
 
-**Receive is only attempted on reach.** The conveyor compares cube
-position to truck positions. When a cube **reaches** truck `T`’s
-position, the conveyor asks `T` whether it can accept that cube. If
-`T` says no, the cube keeps moving toward the next truck’s position.
+**Receive when a block occupies a truck’s slot.** That occupancy can
+come from a granted `advance` step **or** from `load` placing or
+pushing a block onto that slot. The conveyor asks that truck whether
+it can accept the block. Sitting still after a refuse does not
+re-offer every tick; a new arrival does.
 
-**Entry position — do not ask the source truck.** When cubes are
-released from truck `K`, they enter the conveyor **just after `K`’s
-position**, at the start of the hop toward the next truck (`K+1`).
-Spawning there must **not** count as reaching `K`. The first offer is
-when those cubes reach `K+1`. If rejected everywhere, a cube can later
-come all the way around and be offered to `K`.
+**Entry — first out is pushed forward, next steps on behind.** Blocks
+leave truck `K` **top first**, onto the slot immediately after `K`
+(the entry slot). They do not offer to `K` (they are no longer on
+`K`). If another truck sits at the entry slot — or at a slot the
+outgoing chain is pushed onto — offer that truck immediately.
 
-A cube in transit has:
+1. The first popped block steps onto the entry slot.
+2. Each later popped block **pushes that outgoing chain forward one
+   slot**, then steps onto the entry slot — immediately **behind** the
+   block that just left. Later-popped blocks do **not** spawn further
+   down the belt.
+3. After a two-block unload, the first popped is one slot **ahead** of
+   the second. It will reach every subsequent truck first.
 
-- `color`
-- `position` on the conveyor (or, equivalently, `approaching_truck` +
-  ticks of `progress` toward that truck’s position)
-- It does **not** have a destination or reserved slot
+**Displacement.** Inserting at `K`’s entry can shove blocks that are
+already on the belt. Occupants of the entry and of slots the outgoing
+chain is pushed into move **forward** with that push. Blocks already
+at truck `K`’s slot or on the incoming side (`K-n`) that would overlap
+the insertion are **pushed backward** (decreasing position, wrap) so
+there is still one block per slot.
 
-**Clock: ticks.** `hop_duration` is how many ticks a cube takes to go
-from one truck position to the next. `advance(n)` moves every in-transit
-cube forward `n` ticks. An offer happens when a cube’s movement lands
-on (or would pass) a truck’s position. The scene can later map ticks to
-real time however it wants (e.g. one tick per N milliseconds) without
-changing this model.
+**Advance is permissioned.** On each tick of `advance`, every
+in-transit block must **ask the conveyor** whether it can move
+(`can_advance`) **before** its position is incremented. If the
+conveyor says no (typically: next slot occupied by a block that is
+not itself moving this tick), the block stays. A granted step is
++1 slot (wrap). If that slot is a truck, offer then.
+
+If rejected everywhere, a cube can later come all the way around and
+be offered to `K`.
+
+A cube in transit has `color` and `position` (slot only).
 
 Cubes do not merge, match, or clear on the conveyor. The only way off
-is a truck accepting an offer **at its position**.
+is a truck accepting an offer **at its slot**.
 
 ---
 
@@ -183,16 +196,23 @@ no turn order.
    cubes of that color from the top down.
 2. Let `load = min(run, conveyor_max - in_transit_count)`.
 3. Pop `load` cubes from the top of the truck, **top first**.
-4. Put each popped cube onto the conveyor **just after `K`’s position**,
-   in that order (the first popped cube is ahead toward `K+1`).
-5. No destination is chosen or reserved. The source truck is not asked
-   to accept the cubes it just released.
+4. `Conveyor.load` them in that order: first onto the entry slot;
+   each next pushes the outgoing chain forward one slot and steps on
+   behind. No destination is reserved. The source truck is not asked
+   to accept them. If a loaded or pushed block sits on another
+   truck’s slot, offer that truck (see §3).
+5. After the tap, re-check **loss** if any cubes remain in transit
+   (see §6). If a receive during this load emptied the belt, re-check
+   **win** — that is the receive, not the tap. How a loss is animated
+   is out of scope.
 
 Leftover cubes of the same run stay on the truck. Example: top run of
 4 reds, 2 free conveyor slots → 2 reds enter transit, 2 reds remain.
 
-Tapping never itself ends the level. A full conveyor only **blocks**
-further taps. The conveyor keeps running.
+A rejected tap (including “conveyor already at max”) does not change
+state and does not end the level. A **successful** tap can make the
+level lost the instant the loss condition is true. The conveyor still
+exists for whatever the scene later wants to show.
 
 ### `advance(n)`
 
@@ -202,25 +222,23 @@ after accumulating real time, or once per fixed tick).
 
 - `n` is not an integer, or `n <= 0`: invalid input; no movement;
   report an error.
-- Every in-transit cube moves forward `n` ticks along the loop.
+- Each of the `n` ticks: every in-transit block asks `can_advance`;
+  only then may its position increment. Denied → stay that tick.
 - The conveyor does not pause when full or between taps. `advance` is
-  the only clock.
+  the only clock that **moves** blocks. Tap-time load may **push**.
 
-**Reach / offer / receive** — when a cube reaches truck `T`’s position:
+**Reach / offer / receive** — when a granted step lands a cube on
+truck `T`’s slot:
 
-1. The conveyor asks `T` if it can accept this cube **right now**
-   (rules below). No reservation is consulted, because none exists.
-2. **Accepted:** the cube leaves the conveyor (`in_transit_count` drops
-   by 1) and is pushed onto `T`’s top. That cube is done traveling.
-3. **Rejected:** the cube stays in transit and continues toward the
-   next truck’s position. Leftover ticks in the same `advance` call
-   keep moving it.
+1. The conveyor asks `T` if it can accept this cube **right now**.
+2. **Accepted:** the cube leaves the conveyor and is pushed onto `T`.
+   Then re-check **win** (see §6).
+3. **Rejected:** the cube stays in that slot. Further ticks in this
+   `advance` call it may `can_advance` off toward the next truck.
 
-If several cubes reach the same truck in one `advance`, offer them in
-travel order (the cube that is ahead is offered first). An accept can
-change `T`’s top or remaining room for the next offer in that same
-step. That is how “two cubes, one slot” is decided: arrival order, not
-pre-assigned destinations.
+At most one cube reaches a given truck in one tick. Two blocks from
+the same tap sit one slot apart (first popped ahead), so they do not
+arrive together.
 
 ---
 
@@ -245,9 +263,12 @@ below the top, other than for the finished check elsewhere.
 
 ## 6. Win and loss
 
-Evaluated after every successful `tap` and after every receive (i.e.
-whenever session state changes). Both are false while the level is
-still playable.
+**Win** is evaluated after every successful receive only — including a
+receive that happens during `load` when the entry (or a pushed-to
+slot) is another truck. **Loss** is evaluated after every successful
+`tap` only, and only if cubes remain in transit. A receive drops
+`in_transit_count` below `conveyor_max`, so the loss conjunction
+cannot become true until a later tap fills the belt again.
 
 ### Win
 
@@ -270,36 +291,43 @@ The conveyor being full is **not** a loss by itself. When it is full:
 3. If a truck accepts, the cube exits, `in_transit_count` drops, and
    the player can tap again.
 
-Loss is declared only when **both** are true:
+Loss is declared **the instant both are true after a successful tap**.
+How that looks on screen is a later animation question; the model does
+not wait for a full loop.
 
 - In-transit count equals `conveyor_max`.
 - **No in-transit cube would be accepted by any truck if it reached
   that truck’s position right now** — same receive rule (accept any
   color; room + empty-or-top-match), current stacks.
 
-That second clause is a **capability check**, not an assignment. It
-does not pick a truck, reserve a slot, or change motion. If some cube
-*could* be accepted, do **not** fail — keep running until a cube
-actually reaches that truck and is accepted (or until a later receive
-changes the stacks so that nothing left can exit). If no truck would
-accept any in-transit cube, further travel cannot help.
+That second clause is a **capability check**, not an assignment. If
+some cube *could* be accepted, do **not** fail — keep running until a
+cube actually reaches that truck and is accepted. After it is accepted
+the belt is no longer at max; the player can tap again. If no truck
+would accept any in-transit cube, further travel cannot help, and the
+level is already lost from the tap that filled the belt.
 
-Loss is **not** triggered by the tap that finds the conveyor full.
+A tap that is **rejected** because the conveyor is already at max does
+not itself declare loss (state did not change). A **successful** tap
+that leaves the conveyor at max with nothing able to exit **does**
+declare loss immediately.
 
 ---
 
 ## 7. Invalid / unexpected input
 
-| Input | Behavior |
+| Input | `validation_error()` / result |
 | --- | --- |
-| A truck with `capacity < 1` | Reject the level; do not start a session |
-| Duplicate or missing truck positions (if positions are explicit) | Reject the level |
-| Level with `conveyor_max < 1` | Reject the level |
-| Level with `hop_duration` not an integer ≥ 1 | Reject the level |
-| A starting stack longer than **that truck’s** `capacity` | Reject the level |
-| Empty `trucks` list | Reject the level |
-| `tap` with out-of-range index | Rejected tap; state unchanged |
-| `advance(n)` with non-integer or `n <= 0` | Error; state unchanged |
+| A truck with `capacity < 1` | `LevelData.ERR_CAPACITY` |
+| Duplicate truck positions | `LevelData.ERR_DUPLICATE_POSITION` |
+| Truck `position` not in `[0, slot_count)` | `LevelData.ERR_POSITION_RANGE` |
+| `conveyor_max < 1` | `LevelData.ERR_CONVEYOR_MAX` |
+| `slot_count < 1` | `LevelData.ERR_SLOT_COUNT` |
+| Starting stack longer than that truck’s capacity | `LevelData.ERR_STACK_LENGTH` |
+| `CubeColor.Id.NONE` in a starting stack | `LevelData.ERR_NONE_IN_STACK` |
+| Empty `trucks` list | `LevelData.ERR_EMPTY_TRUCKS` |
+| `tap` with out-of-range index | `TapResult.INVALID_INDEX`; state unchanged |
+| `advance(n)` with non-integer or `n <= 0` | `AdvanceResult.INVALID_TICKS`; state unchanged |
 
 The session does not invent cubes, colors, or trucks. It only rearranges
 what the level provided.
@@ -354,7 +382,7 @@ Enough to reconstruct the puzzle without looking at internals:
 - Each truck’s `capacity`, `position`, owned blocks (bottom → top),
   and whether it is finished.
 - Each color’s `set_size`.
-- Each in-transit block: color and path on the conveyor.
+- Each in-transit block: color and `position` (slot).
 - `in_transit_count`, `conveyor_max`.
 - Whether the last `tap` was accepted, and if not, why.
 - Whether the level is playing, won, or lost.
@@ -373,12 +401,15 @@ Enough to reconstruct the puzzle without looking at internals:
 
 ## 11. Decisions closed (this spec)
 
-- Positions: trucks sit on the conveyor; offer only on reach; entry is
-  just after the source truck.
+- Positions: discrete slots. Offer when a block occupies a truck
+  slot (advance land **or** load onto that slot). Entry is the slot
+  after the source; that may itself be another truck. First popped
+  is pushed forward; later popped step on behind. Advance requires
+  `can_advance`.
 - Accept vs complete: accept any color; finish only when capacity
   matches that color’s set size.
-- Clock: integer ticks. `hop_duration` is ticks per hop. `advance(n)`
-  advances `n` ticks.
+- Clock: `advance(n)` is `n` permissioned +1 slot steps. No
+  `hop_duration`. Ring size is `slot_count`.
 - Ownership: `PuzzleSession` → `Level` → `Conveyor` → (`Truck` →
   stacked `Block`, and in-transit `Block`). `tap` / `advance` on
   `Level`.
