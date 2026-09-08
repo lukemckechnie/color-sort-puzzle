@@ -20,6 +20,7 @@ WEB_CONTAINER_NAME ?= chroma-sort-web
 .PHONY: test web-export webdeploy-local
 
 test:
+	"$(GODOT)" --headless --path . --import
 	"$(GODOT)" --headless --path . -s res://addons/gut/gut_cmdln.gd -gexit -gdisable_colors
 
 web-export:
