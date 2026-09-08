@@ -1,7 +1,7 @@
 # Godot 4+ specific ignores
 .godot/
 .import/
-export_presets.cfg
+# Export presets are source configuration used by CI and should be committed.
 
 # Imported translations (automatically generated from CSV files)
 *.translation
@@ -19,5 +19,6 @@ data_*/
 .LSOverride
 
 # Build/export output
+/build/
 /builds/
 /export/

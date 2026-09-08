@@ -13,8 +13,8 @@ func _blocks(ids: Array) -> Array[Block]:
 	return out
 
 
-func _truck(capacity: int, ids: Array, position: int = 0) -> Truck:
-	return Truck.new(capacity, position, _blocks(ids))
+func _truck(capacity: int, ids: Array) -> Truck:
+	return Truck.new(capacity, _blocks(ids))
 
 
 func test_empty_truck_accepts_any_color() -> void:
@@ -23,6 +23,35 @@ func test_empty_truck_accepts_any_color() -> void:
 	assert_true(truck.is_empty())
 	assert_true(truck.can_accept(CubeColor.Id.RED, sizes))
 	assert_true(truck.can_accept(CubeColor.Id.BLUE, sizes))
+
+
+func test_empty_truck_refuses_claimed_color() -> void:
+	var truck := _truck(3, [])
+	var sizes := {CubeColor.Id.RED: 3, CubeColor.Id.BLUE: 1}
+	var claimed := {CubeColor.Id.RED: true}
+	assert_false(truck.can_accept(CubeColor.Id.RED, sizes, claimed))
+	assert_true(truck.can_accept(CubeColor.Id.BLUE, sizes, claimed))
+
+
+func test_top_match_still_accepts_claimed_color() -> void:
+	var truck := _truck(3, [CubeColor.Id.RED])
+	var sizes := {CubeColor.Id.RED: 3}
+	var claimed := {CubeColor.Id.RED: true}
+	assert_true(truck.can_accept(CubeColor.Id.RED, sizes, claimed))
+
+
+func test_potential_completion_is_uniform_matching_capacity() -> void:
+	var home := _truck(3, [CubeColor.Id.RED, CubeColor.Id.RED])
+	var sizes := {CubeColor.Id.RED: 3, CubeColor.Id.BLUE: 5}
+	assert_true(home.is_potential_completion(sizes))
+	var parking := _truck(3, [CubeColor.Id.BLUE, CubeColor.Id.BLUE])
+	assert_false(parking.is_potential_completion(sizes), "wrong capacity is not a claim")
+	var mixed := _truck(3, [CubeColor.Id.RED, CubeColor.Id.BLUE])
+	assert_false(mixed.is_potential_completion(sizes))
+	var empty := _truck(3, [])
+	assert_false(empty.is_potential_completion(sizes))
+	var finished := _truck(3, [CubeColor.Id.RED, CubeColor.Id.RED, CubeColor.Id.RED])
+	assert_true(finished.is_potential_completion(sizes))
 
 
 func test_empty_top_color_is_none_and_run_length_is_zero() -> void:
@@ -67,7 +96,7 @@ func test_unload_transfers_top_color_run_up_to_max_count_top_first() -> void:
 	stacked.append(r1)
 	stacked.append(r2)
 	stacked.append(r3)
-	var truck := Truck.new(4, 0, stacked)
+	var truck := Truck.new(4, stacked)
 
 	var taken := truck.unload(2)
 	assert_eq(taken.size(), 2, "unload should transfer min(run, max_count)")
@@ -88,7 +117,7 @@ func test_unload_does_not_take_past_the_top_run() -> void:
 	stacked.append(blue)
 	stacked.append(r1)
 	stacked.append(r2)
-	var truck := Truck.new(3, 0, stacked)
+	var truck := Truck.new(3, stacked)
 
 	var taken := truck.unload(10)
 	assert_eq(taken.size(), 2)

@@ -24,6 +24,17 @@ addons/      # third-party plugins (e.g. IAP/billing wrappers)
 docs/        # design notes
 ```
 
+## Local web preview
+
+Install Godot's Web export templates, then export and serve the game locally:
+
+```bash
+make webdeploy-local
+```
+
+The target exports to `build/web` and serves it at http://localhost:8080 using
+nginx in Docker. Override the port with `make WEB_PORT=8081 webdeploy-local`.
+
 ## Platform targets
 
 - **Android** first — fastest iteration loop, no Mac required, one-time
