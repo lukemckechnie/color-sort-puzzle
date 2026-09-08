@@ -17,7 +17,10 @@ NGINX_IMAGE ?= nginx:alpine
 WEB_PORT ?= 8080
 WEB_CONTAINER_NAME ?= chroma-sort-web
 
-.PHONY: web-export webdeploy-local
+.PHONY: test web-export webdeploy-local
+
+test:
+	"$(GODOT)" --headless --path . -s res://addons/gut/gut_cmdln.gd -gexit -gdisable_colors
 
 web-export:
 	mkdir -p "$(WEB_BUILD_DIR)"
